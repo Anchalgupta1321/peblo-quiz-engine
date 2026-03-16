@@ -39,32 +39,33 @@ def generate_quiz(req: QuizGenerationRequest, db: Session = Depends(get_db)):
 @router.get("/quiz", response_model=List[QuestionOut])
 def get_quiz(topic: str = None, difficulty: str = None, db: Session = Depends(get_db)):
     """Retrieves generated questions using optional topic or difficulty query filters."""
-    query = db.query(Questions)
+    # Join with ContentChunks to get the source text
+    query = db.query(Questions, ContentChunks.chunk_text).join(ContentChunks, Questions.source_chunk_id == ContentChunks.id)
     
     if topic:
-        query = query.join(ContentChunks).filter(ContentChunks.topic.ilike(f"%{topic}%"))
+        query = query.filter(ContentChunks.topic.ilike(f"%{topic}%"))
         
     if difficulty:
         query = query.filter(Questions.difficulty == difficulty)
         
-    questions = query.limit(10).all()
+    results = query.limit(10).all()
     
-    result = []
-    for q in questions:
-        # safely parse options back to list format
+    final_output = []
+    for q, chunk_text in results:
         try:
             options_list = json.loads(q.options) if q.options else []
         except:
             options_list = []
             
-        result.append(QuestionOut(
+        final_output.append(QuestionOut(
             id=q.id,
             source_chunk_id=q.source_chunk_id,
             type=q.type,
             question=q.question,
             options=options_list,
             answer=q.answer,
-            difficulty=q.difficulty
+            difficulty=q.difficulty,
+            source_chunk_text=chunk_text
         ))
         
-    return result
+    return final_output

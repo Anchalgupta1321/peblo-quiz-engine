@@ -3,109 +3,251 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Peblo AI - Adaptive Learning</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <title>Peblo AI | Adaptive Learning Engine</title>
+    <!-- Premium Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <!-- Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Confetti for success -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
-<body class="dark-theme">
+<body>
     <div class="background-blobs">
         <div class="blob blob-1"></div>
         <div class="blob blob-2"></div>
-        <div class="blob blob-3"></div>
     </div>
 
     <div class="app-container">
-        <!-- Header -->
+        <!-- Modern Header -->
         <header class="glass-panel">
             <div class="logo">
-                <i data-lucide="brain-circuit" class="icon-accent"></i>
-                <h1>Peblo<span>AI</span></h1>
+                <i data-lucide="zap" style="color: var(--primary)"></i>
+                Peblo <span>AI</span>
             </div>
             <div class="student-profile">
-                <span>Student ID: S001</span>
-                <div class="avatar">S</div>
+                <div class="profile-info">
+                    <div style="font-weight: 700; font-size: 0.9rem;">Alex Thompson</div>
+                    <div style="font-size: 0.75rem; color: var(--text-dim);">ID: S001-ALPHA</div>
+                </div>
+                <div class="avatar">AT</div>
             </div>
         </header>
 
-        <!-- Main Content Layout -->
-        <main class="dashboard grid-layout">
-            
-            <!-- Left Sidebar (Upload & Actions) -->
-            <aside class="sidebar glass-panel slide-in-left">
-                <h2>Knowledge Ingestion</h2>
-                <p class="subtitle">Upload content to start your adaptive journey.</p>
-                
-                <div class="upload-zone" id="upload-zone">
-                    <input type="file" id="pdf-upload" accept=".pdf" hidden />
-                    <i data-lucide="upload-cloud" class="upload-icon"></i>
-                    <p>Drag & Drop your PDF here</p>
-                    <span class="text-sm">or</span>
-                    <button class="btn btn-secondary" onclick="document.getElementById('pdf-upload').click()">Browse Files</button>
-                    <div id="upload-status" class="status-message"></div>
-                </div>
-
-                <div class="generation-zone disabled" id="generation-zone">
-                    <div class="zone-header">
-                        <h3>Content Processed</h3>
-                        <i data-lucide="check-circle" class="success-icon"></i>
+        <main class="dashboard">
+            <!-- Sidebar: Intake & Config -->
+            <aside class="sidebar">
+                <section class="sidebar-section glass-panel">
+                    <h2>Content Intake</h2>
+                    <p>Upload educational PDFs to feed the AI generator.</p>
+                    
+                    <div class="upload-zone" id="upload-zone">
+                        <input type="file" id="pdf-upload" accept=".pdf" hidden />
+                        <i data-lucide="file-plus" class="upload-icon"></i>
+                        <p style="font-weight: 600;">Click or drop PDF</p>
+                        <span style="font-size: 0.75rem; opacity: 0.5;">Maximum size 10MB</span>
                     </div>
-                    <p id="extraction-status" class="text-sm text-dim">Ready to analyze chunks.</p>
-                    <button class="btn btn-primary full-width mt-4 pulse" id="btn-generate">
-                        <i data-lucide="sparkles"></i> Generate AI Quiz
+                    <div id="upload-status"></div>
+                </section>
+
+                <section class="sidebar-section glass-panel hidden" id="student-progress-panel">
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+                        <i data-lucide="trending-up" style="color: var(--primary)"></i>
+                        <h2 style="margin: 0;">Performance Tracker</h2>
+                    </div>
+                    <div class="status-detail-grid">
+                        <div class="detail-item">
+                            <span class="label">Attempted</span>
+                            <span class="value" id="stat-attempted">0</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Accuracy</span>
+                            <span class="value" id="stat-accuracy">0%</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Current Level</span>
+                            <span class="value" id="stat-level">Medium</span>
+                        </div>
+                    </div>
+                    <div id="performance-chart-container" style="height: 100px; margin-top: 1rem; border-left: 2px solid hsla(0,0%,100%,0.1); border-bottom: 2px solid hsla(0,0%,100%,0.1); display: flex; align-items: flex-end; gap: 4px; padding: 4px;">
+                        <!-- Bars will be injected via JS -->
+                    </div>
+                </section>
+
+                <section class="sidebar-section glass-panel hidden" id="doc-status-panel">
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+                        <i data-lucide="file-text" style="color: var(--secondary)"></i>
+                        <h2 style="margin: 0;">Processed Document</h2>
+                    </div>
+                    <div class="status-detail-grid">
+                        <div class="detail-item">
+                            <span class="label">Filename</span>
+                            <span class="value" id="status-filename">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Subject</span>
+                            <span class="value" id="status-subject">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Grade</span>
+                            <span class="value" id="status-grade">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Pages</span>
+                            <span class="value" id="status-pages">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Chunks</span>
+                            <span class="value" id="status-chunks">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Questions</span>
+                            <span class="value" id="status-questions">-</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="sidebar-section glass-panel disabled" id="gen-section">
+                    <h2>Quiz Engine</h2>
+                    <p id="gen-info">Process the extracted knowledge into interactive challenges.</p>
+                    
+                    <div class="filter-group" style="margin-top: 1rem;">
+                        <label class="label">Topic Filter</label>
+                        <select id="filter-topic" class="select-input">
+                            <option value="">All Topics</option>
+                            <option value="science">Science</option>
+                            <option value="math">Math</option>
+                            <option value="shapes">Shapes</option>
+                            <option value="vocabulary">Vocabulary</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group" style="margin-top: 1rem; margin-bottom: 1.5rem;">
+                        <label class="label">Difficulty</label>
+                        <select id="filter-difficulty" class="select-input">
+                            <option value="">All Levels</option>
+                            <option value="easy">Easy</option>
+                            <option value="medium">Medium</option>
+                            <option value="hard">Hard</option>
+                        </select>
+                    </div>
+
+                    <button class="btn btn-primary" id="btn-generate" style="width: 100%;">
+                        <i data-lucide="zap"></i> Ignite AI Engine
                     </button>
-                    <div id="generation-status" class="status-message"></div>
-                </div>
+                    <div id="gen-status"></div>
+                </section>
+
+                <section class="sidebar-section glass-panel">
+                    <h2>Maintenance</h2>
+                    <p>Clean up database for a fresh demo run.</p>
+                    <button class="btn btn-secondary" id="btn-reset" style="width: 100%; margin-top: 1rem; color: var(--danger);">
+                        <i data-lucide="trash-2"></i> Wipe Database
+                    </button>
+                </section>
             </aside>
 
-            <!-- Right Content Area (Quiz Runner) -->
-            <section class="content-area glass-panel slide-in-bottom">
+            <!-- Main Stage: Adaptive Quiz -->
+            <main class="content-area glass-panel">
                 
-                <div id="empty-state" class="empty-state">
-                    <div class="icon-ring">
-                        <i data-lucide="book-open" class="large-icon"></i>
-                    </div>
-                    <h2>No active quiz</h2>
-                    <p>Upload a document and generate the quiz to begin learning.</p>
+                <!-- Loading State overlay -->
+                <div id="processing-overlay" class="processing-overlay hidden">
+                    <i data-lucide="refresh-cw" class="spin" style="width: 48px; height: 48px; color: var(--primary);"></i>
+                    <h3 id="overlay-text">Analyzing Content...</h3>
                 </div>
 
+                <!-- Empty State -->
+                <div id="empty-state" class="empty-state">
+                    <i data-lucide="brain-circuit" style="width: 80px; height: 80px; opacity: 0.1; margin-bottom: 1.5rem;"></i>
+                    <h1>Ready to Learn?</h1>
+                    <p>Upload a course document to extract knowledge and start your adaptive journey.</p>
+                </div>
+
+                <!-- Quiz Runner -->
                 <div id="quiz-runner" class="quiz-runner hidden">
-                    <div class="quiz-header">
-                        <div class="difficulty-badge" id="difficulty-badge">Medium</div>
-                        <div class="progress">Question <span id="current-q-index">1</span> of <span id="total-q">?</span></div>
+                    <div class="question-header">
+                        <div class="difficulty-group">
+                            <span class="difficulty-label">Adaptive Level</span>
+                            <div class="badge" id="diff-badge">Initializing...</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-dim);">Progress Tracking</span>
+                            <div style="font-size: 1.25rem; font-weight: 800;">Q<span id="curr-idx">1</span> <span style="opacity: 0.3">/</span> <span id="total-idx">10</span></div>
+                        </div>
                     </div>
-                    
-                    <div class="question-container">
-                        <h2 id="question-text" class="question-title">Loading Question...</h2>
-                        <div id="options-container" class="options-grid">
-                            <!-- Options rendered dynamically -->
+
+                    <div class="progress-container">
+                        <div class="progress-bar" id="progress-bar"></div>
+                    </div>
+
+                    <div class="question-body">
+                        <h1 class="question-title" id="q-text">Is the Earth flat or round according to standard science?</h1>
+                        <div class="options-stack" id="options-stack">
+                            <!-- Dynamic Options -->
+                        </div>
+                    </div>
+
+                    <div id="source-trace-panel" class="hidden" style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid hsla(0,0%,100%,0.05);">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; color: var(--text-dim);">
+                            <i data-lucide="book-open" style="width: 16px;"></i>
+                            <span style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Source Traceability</span>
+                        </div>
+                        <div id="source-text-display" style="font-style: italic; font-size: 0.95rem; line-height: 1.6; color: var(--text-dim); margin-bottom: 0.5rem; padding-left: 1rem; border-left: 3px solid var(--primary);">
+                            <!-- Source text -->
+                        </div>
+                        <div id="source-id-display" style="font-family: monospace; font-size: 0.75rem; color: hsla(0,0%,100%,0.3);">
+                            <!-- Chunk ID -->
                         </div>
                     </div>
 
                     <div class="quiz-footer">
-                        <div id="feedback-panel" class="feedback-panel hidden">
-                            <!-- Correct / Incorrect feedback -->
+                        <div id="feedback-area" style="flex-grow: 1;"></div>
+                        <div class="quiz-actions" style="display: flex; gap: 1rem;">
+                            <button class="btn btn-primary" id="btn-submit">
+                                Submit Answer <i data-lucide="send"></i>
+                            </button>
+                            <button class="btn btn-primary hidden" id="btn-next">
+                                Next Question <i data-lucide="chevron-right"></i>
+                            </button>
                         </div>
-                        <button id="btn-next" class="btn btn-primary next-button hidden">Next Question <i data-lucide="arrow-right"></i></button>
                     </div>
-                </div>
-                
-                <div id="quiz-complete" class="empty-state hidden">
-                    <div class="icon-ring success-ring">
-                        <i data-lucide="trophy" class="large-icon"></i>
-                    </div>
-                    <h2>Quiz Completed!</h2>
-                    <p>Your adaptive engine has updated your personal proficiency map.</p>
-                    <button class="btn btn-primary mt-4" onclick="location.reload()">Start Another</button>
                 </div>
 
-            </section>
+                <!-- Results Screen -->
+                <div id="results-screen" class="results-screen hidden" style="text-align: center;">
+                    <i data-lucide="trophy" style="width: 80px; height: 80px; color: var(--secondary); margin-bottom: 1.5rem;"></i>
+                    <h1>Quiz Complete!</h1>
+                    <p>Excellent progress. Here is how you performed:</p>
+                    
+                    <div class="status-detail-grid" style="max-width: 300px; margin: 2rem auto; text-align: left;">
+                        <div class="detail-item">
+                            <span class="label">Total Score</span>
+                            <span class="value" id="final-score">0 / 0</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Final Accuracy</span>
+                            <span class="value" id="final-accuracy">0%</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Skill Level</span>
+                            <span class="value" id="final-level">-</span>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="location.reload()">
+                        <i data-lucide="rotate-ccw"></i> Try Another Document
+                    </button>
+                </div>
+            </main>
         </main>
     </div>
 
+    <!-- UI Overlay for Level Up -->
+    <div id="overlay-container"></div>
+
     <script src="app.js"></script>
-    <script>
-        lucide.createIcons();
-    </script>
+    <script>lucide.createIcons();</script>
 </body>
 </html>

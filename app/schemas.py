@@ -19,6 +19,7 @@ class QuestionBase(BaseModel):
     options: List[str]
     answer: str
     difficulty: str
+    source_chunk_text: Optional[str] = None
 
 class QuestionOut(QuestionBase):
     class Config:
@@ -35,7 +36,11 @@ class QuizGenerationRequest(BaseModel):
 class IngestionResponse(BaseModel):
     message: str
     source_id: str
+    filename: str
+    pages_count: int
     chunks_extracted: int
+    grade: Optional[str] = None
+    subject: Optional[str] = None
 
 class QuizGenerationResponse(BaseModel):
     message: str
@@ -46,3 +51,4 @@ class AnswerResponse(BaseModel):
     correct_answer: str
     original_difficulty: str
     next_recommended_difficulty: str
+    source_chunk_id: str

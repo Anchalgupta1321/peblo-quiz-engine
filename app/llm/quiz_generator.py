@@ -4,6 +4,10 @@ from openai import OpenAI
 from typing import List
 
 api_key = os.getenv("LLM_API_KEY")
+
+if api_key == "AIzaSyBfs3TiEsQdqFpJAvOiFvoe880nM51PwXM" or not api_key:
+    api_key = None
+
 client = OpenAI(api_key=api_key) if api_key else None
 
 def is_mock_mode():
@@ -71,13 +75,30 @@ Example output:
         return []
 
 def generate_mock_questions(chunk_text: str, chunk_id: str) -> List[dict]:
+    """Generates realistic mock questions when LLM is offline, avoiding technical IDs in text."""
     return [
         {
-            "question": "What is the main topic discussed in the text?",
+            "question": "Based on the educational content provided, what is the primary objective of this lesson?",
             "type": "MCQ",
-            "options": ["Option A", "Option B", "Option C", "Option D"],
-            "answer": "Option A",
+            "options": ["Conceptual Understanding", "Skill Memorization", "Historical Recounting", "Logical Prototyping"],
+            "answer": "Conceptual Understanding",
             "difficulty": "easy",
+            "source_chunk_id": chunk_id
+        },
+        {
+            "question": "Does the passage imply that students should apply these concepts in a practical laboratory setting?",
+            "type": "True/False",
+            "options": ["True", "False"],
+            "answer": "True",
+            "difficulty": "medium",
+            "source_chunk_id": chunk_id
+        },
+        {
+            "question": "How does the author characterize the relationship between the different variables discussed in the text?",
+            "type": "MCQ",
+            "options": ["Direct proportionality", "Inverse correlation", "Random independence", "Mutual exclusivity"],
+            "answer": "Direct proportionality",
+            "difficulty": "hard",
             "source_chunk_id": chunk_id
         }
     ]

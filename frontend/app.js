@@ -1,274 +1,384 @@
 const API_BASE = window.location.origin;
-const STUDENT_ID = "S001"; // Hardcoded for prototype demo
+const STUDENT_ID = "S001-ALPHA"; // Demo Student
 
-// State Variables
-let currentSourceId = null;
-let currentQuizData = [];
-let currentQuestionIndex = 0;
-let isAnswerSubmitted = false;
-let currentDifficulty = "medium";
+// App State
+let appState = {
+    sourceId: null,
+    quiz: [],
+    index: 0,
+    difficulty: 'medium',
+    isLocked: false,
+    score: 0,
+    attempts: 0,
+    correctCount: 0,
+    history: [] // {correct: bool, level: string}
+};
 
-// DOM Elements
-const uploadZone = document.getElementById("upload-zone");
-const fileInput = document.getElementById("pdf-upload");
-const uploadStatus = document.getElementById("upload-status");
-const genZone = document.getElementById("generation-zone");
-const btnGenerate = document.getElementById("btn-generate");
-const genStatus = document.getElementById("generation-status");
+// DOM Cache
+const dom = {
+    uploadZone: document.getElementById('upload-zone'),
+    fileInput: document.getElementById('pdf-upload'),
+    uploadStatus: document.getElementById('upload-status'),
+    genSection: document.getElementById('gen-section'),
+    genStatus: document.getElementById('gen-status'),
+    btnGenerate: document.getElementById('btn-generate'),
+    btnReset: document.getElementById('btn-reset'),
+    
+    emptyState: document.getElementById('empty-state'),
+    quizRunner: document.getElementById('quiz-runner'),
+    resultsScreen: document.getElementById('results-screen'),
+    
+    qText: document.getElementById('q-text'),
+    optionsStack: document.getElementById('options-stack'),
+    diffBadge: document.getElementById('diff-badge'),
+    currIdx: document.getElementById('curr-idx'),
+    totalIdx: document.getElementById('total-idx'),
+    progressBar: document.getElementById('progress-bar'),
+    
+    feedback: document.getElementById('feedback-area'),
+    btnNext: document.getElementById('btn-next'),
+    btnSubmit: document.getElementById('btn-submit'),
+    overlay: document.getElementById('overlay-container'),
 
-const emptyState = document.getElementById("empty-state");
-const quizRunner = document.getElementById("quiz-runner");
-const quizComplete = document.getElementById("quiz-complete");
+    // Adaptive Panel
+    progressPanel: document.getElementById('student-progress-panel'),
+    statAttempted: document.getElementById('stat-attempted'),
+    statAccuracy: document.getElementById('stat-accuracy'),
+    statLevel: document.getElementById('stat-level'),
+    chartContainer: document.getElementById('performance-chart-container')
+};
 
-const qTitle = document.getElementById("question-text");
-const optionsContainer = document.getElementById("options-container");
-const diffBadge = document.getElementById("difficulty-badge");
-const idxCurrent = document.getElementById("current-q-index");
-const idxTotal = document.getElementById("total-q");
+// State for selection
+let selectedValue = null;
+let selectedCardElement = null;
 
-const feedbackPanel = document.getElementById("feedback-panel");
-const btnNext = document.getElementById("btn-next");
-
-// --- 1. File Upload & Ingestion Logic ---
-uploadZone.addEventListener("dragover", (e) => {
+// --- Ingestion Logic ---
+dom.uploadZone.addEventListener('click', () => dom.fileInput.click());
+dom.uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); dom.uploadZone.classList.add('dragover'); });
+dom.uploadZone.addEventListener('dragleave', () => dom.uploadZone.classList.remove('dragover'));
+dom.uploadZone.addEventListener('drop', (e) => {
     e.preventDefault();
-    uploadZone.classList.add("dragover");
-});
-uploadZone.addEventListener("dragleave", () => {
-    uploadZone.classList.remove("dragover");
-});
-uploadZone.addEventListener("drop", (e) => {
-    e.preventDefault();
-    uploadZone.classList.remove("dragover");
-    if (e.dataTransfer.files.length) {
-        handleFileUpload(e.dataTransfer.files[0]);
-    }
-});
-fileInput.addEventListener("change", (e) => {
-    if (e.target.files.length) {
-        handleFileUpload(e.target.files[0]);
-    }
+    dom.uploadZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) handleUpload(e.dataTransfer.files[0]);
 });
 
-async function handleFileUpload(file) {
-    if (file.type !== "application/pdf") {
-        uploadStatus.textContent = "Please upload a valid PDF file.";
-        uploadStatus.className = "status-message status-error fade-in";
-        return;
-    }
+dom.fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length) handleUpload(e.target.files[0]);
+});
 
-    uploadStatus.textContent = `Uploading ${file.name}...`;
-    uploadStatus.className = "status-message fade-in";
+// Helper for overlay
+function showProcessing(text) {
+    document.getElementById('processing-overlay').classList.remove('hidden');
+    document.getElementById('overlay-text').textContent = text;
+}
+function hideProcessing() {
+    document.getElementById('processing-overlay').classList.add('hidden');
+}
 
-    const formData = new FormData();
-    formData.append("file", file);
-
+async function handleUpload(file) {
+    if (file.type !== 'application/pdf') return notifyUpload("Error: PDF required", "error");
+    
+    showProcessing("Analyzing Knowledge Layers...");
+    notifyUpload("Parsing knowledge...", "pending");
+    
+    const fd = new FormData();
+    fd.append('file', file);
+    
     try {
-        const response = await fetch(`${API_BASE}/ingest`, {
-            method: "POST",
-            body: formData,
-        });
+        const res = await fetch(`${API_BASE}/ingest`, { method: 'POST', body: fd });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        
+        appState.sourceId = data.source_id;
+        notifyUpload(`Ready: ${data.chunks_extracted} layers found.`, "success");
+        
+        // Show status panel
+        document.getElementById('doc-status-panel').classList.remove('hidden');
+        document.getElementById('status-filename').textContent = data.filename;
+        document.getElementById('status-subject').textContent = data.subject || "General";
+        document.getElementById('status-grade').textContent = data.grade || "AI Derived";
+        document.getElementById('status-pages').textContent = data.pages_count;
+        document.getElementById('status-chunks').textContent = data.chunks_extracted;
+        document.getElementById('status-questions').textContent = "-";
 
-        if (!response.ok) throw new Error("API ingest failed");
-        
-        const data = await response.json();
-        currentSourceId = data.source_id;
-        
-        uploadStatus.textContent = `Success! Parsed ${data.chunks_extracted} chunks.`;
-        uploadStatus.className = "status-message status-success fade-in";
-        
-        // Unlock generation zone
-        genZone.classList.remove("disabled");
-        document.getElementById("extraction-status").textContent = `Document ID: ${currentSourceId.slice(0, 8)}... ready.`;
-        
-    } catch (err) {
-        console.error(err);
-        uploadStatus.textContent = "Failed to ingest document. Is backend running?";
-        uploadStatus.className = "status-message status-error fade-in";
+        dom.genSection.classList.remove('disabled');
+        dom.genSection.classList.add('fade-in');
+    } catch (e) {
+        notifyUpload("Server offline.", "error");
+    } finally {
+        hideProcessing();
     }
 }
 
-// --- 2. Quiz Generation Logic ---
-btnGenerate.addEventListener("click", async () => {
-    if (!currentSourceId) return;
+function notifyUpload(msg, type) {
+    dom.uploadStatus.innerHTML = `<div class="status-pill ${type}">${msg}</div>`;
+}
 
-    btnGenerate.disabled = true;
-    btnGenerate.innerHTML = `<i data-lucide="loader" class="pulse"></i> Analyzing Content...`;
+// --- Generation Logic ---
+dom.btnGenerate.addEventListener('click', async () => {
+    if (!appState.sourceId || appState.isLocked) return;
+    
+    appState.isLocked = true;
+    dom.btnGenerate.disabled = true;
+    showProcessing("Generating Quiz Questions...");
     lucide.createIcons();
-
+    
     try {
-        const response = await fetch(`${API_BASE}/generate-quiz`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ source_id: currentSourceId })
+        const res = await fetch(`${API_BASE}/generate-quiz`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source_id: appState.sourceId })
         });
+        const data = await res.json();
         
-        if (!response.ok) throw new Error("Generation limits reached or failed.");
-        const data = await response.json();
+        // Read filters
+        const topic = document.getElementById('filter-topic').value;
+        const diff = document.getElementById('filter-difficulty').value;
+        let url = `${API_BASE}/quiz?`;
+        if (topic) url += `topic=${topic}&`;
+        if (diff) url += `difficulty=${diff}`;
 
-        genStatus.textContent = `Generated ${data.questions_generated} questions via LLM!`;
-        genStatus.className = "status-message status-success fade-in";
-        btnGenerate.innerHTML = `<i data-lucide="check"></i> Ready`;
-
-        // Start local quiz session!
-        startQuizSession();
-
-    } catch (err) {
-        console.error(err);
-        genStatus.textContent = "Generation failed. Check console.";
-        genStatus.className = "status-message status-error fade-in";
-        btnGenerate.disabled = false;
-        btnGenerate.innerHTML = `<i data-lucide="sparkles"></i> Try Again`;
-    }
-});
-
-async function startQuizSession() {
-    // Hide empty state, load questions
-    emptyState.classList.add("hidden");
-    
-    // Fetch initial quiz list
-    await fetchNextQuestionsList();
-    
-    if(currentQuizData.length > 0) {
-        quizRunner.classList.remove("hidden");
-        idxTotal.textContent = currentQuizData.length;
-        renderQuestion();
-    } else {
-        emptyState.classList.remove("hidden");
-        emptyState.querySelector("h2").textContent = "No questions found.";
-    }
-}
-
-async function fetchNextQuestionsList() {
-    try {
-        const res = await fetch(`${API_BASE}/quiz?difficulty=${currentDifficulty}`);
-        currentQuizData = await res.json();
-    } catch(err) {
-        console.error(err);
-    }
-}
-
-// --- 3. Interactive Quiz Runner ---
-function renderQuestion() {
-    isAnswerSubmitted = false;
-    feedbackPanel.classList.add("hidden");
-    btnNext.classList.add("hidden");
-    quizRunner.classList.remove("slide-in-bottom");
-    // force reflow for animation restart
-    void quizRunner.offsetWidth;
-    quizRunner.classList.add("slide-in-bottom");
-
-    const q = currentQuizData[currentQuestionIndex];
-    
-    idxCurrent.textContent = currentQuestionIndex + 1;
-    qTitle.textContent = q.question;
-    
-    // Set Difficulty Badge UI
-    diffBadge.textContent = q.difficulty;
-    diffBadge.className = "difficulty-badge diff-" + q.difficulty;
-
-    optionsContainer.innerHTML = "";
-    
-    if (q.type === "MCQ" || q.type === "True/False") {
-        let opts = q.options;
-        if (!opts || opts.length === 0) {
-             // fallback just in case JSON parse failed natively
-             if(q.type === 'True/False') opts = ['True', 'False']; 
-             else opts = ['Option A', 'Option B'];
-        }
-
-        opts.forEach((opt, idx) => {
-            const btn = document.createElement("button");
-            btn.className = "option-btn fade-in";
-            btn.style.animationDelay = `${idx * 0.1}s`;
-            
-            // Add alphabetical prefix styling A, B, C, D
-            const letterMatch = String.fromCharCode(65 + idx);
-            btn.innerHTML = `<strong>${letterMatch}</strong> <span>${opt}</span>`;
-            
-            btn.onclick = () => submitAnswer(opt, btn, q);
-            optionsContainer.appendChild(btn);
-        });
-    } else {
-        // Fill in the blank (Input field)
-        const inputContainer = document.createElement("div");
-        inputContainer.style.display = "flex";
-        inputContainer.style.gap = "1rem";
+        // Fetch filtered questions
+        const qRes = await fetch(url);
+        appState.quiz = await qRes.json();
         
-        const inp = document.createElement("input");
-        inp.type = "text";
-        inp.placeholder = "Type your answer here...";
-        inp.className = "option-btn fade-in";
-        inp.style.flexGrow = "1";
-        inp.style.cursor = "text";
-        
-        const subBtn = document.createElement("button");
-        subBtn.textContent = "Submit";
-        subBtn.className = "btn btn-primary";
-        subBtn.onclick = () => submitAnswer(inp.value, inp, q);
-        
-        inputContainer.appendChild(inp);
-        inputContainer.appendChild(subBtn);
-        optionsContainer.appendChild(inputContainer);
-    }
-}
+        document.getElementById('status-questions').textContent = appState.quiz.length;
 
-async function submitAnswer(selectedAnswer, elementClicked, questionRecord) {
-    if (isAnswerSubmitted) return;
-    isAnswerSubmitted = true;
-
-    // Mark visual selection
-    if (elementClicked.tagName === 'BUTTON' && !elementClicked.classList.contains('btn-primary')) {
-        elementClicked.classList.add("selected");
-    }
-
-    // Call API to track adaptive difficulty
-    try {
-        const payload = {
-            student_id: STUDENT_ID,
-            question_id: questionRecord.id,
-            selected_answer: selectedAnswer.toString()
-        };
-
-        const res = await fetch(`${API_BASE}/submit-answer`, {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify(payload)
-        });
-        
-        const apiResponse = await res.json();
-        const nextDiff = apiResponse.next_recommended_difficulty;
-
-        // Apply feedback visual style
-        if (apiResponse.is_correct) {
-            if (elementClicked.tagName === 'BUTTON') elementClicked.classList.add("correct");
-            feedbackPanel.innerHTML = `<i data-lucide="check-circle"></i> <div>Excellent! <p>Adaptive Engine rating you higher.</p></div>`;
-            feedbackPanel.className = "feedback-panel correct fade-in";
+        if (appState.quiz.length > 0) {
+            initQuiz();
         } else {
-            if (elementClicked.tagName === 'BUTTON') elementClicked.classList.add("wrong");
-            feedbackPanel.innerHTML = `<i data-lucide="x-circle"></i> <div>Incorrect. <p>The correct answer was: <strong>${apiResponse.correct_answer}</strong></p></div>`;
-            feedbackPanel.className = "feedback-panel wrong fade-in";
+            alert("No questions could be generated with these filters.");
+            appState.isLocked = false;
+            dom.btnGenerate.disabled = false;
         }
-
-        // Store recommended difficulty for next fetch
-        currentDifficulty = nextDiff;
-        
-    } catch(err) {
-        console.error(err);
+    } catch (e) {
+        dom.genStatus.innerHTML = `<div class="status-pill error">LLM Error. Check API Key.</div>`;
+        dom.btnGenerate.disabled = false;
+        appState.isLocked = false;
+    } finally {
+        hideProcessing();
+        lucide.createIcons();
     }
+});
 
+// ... same quiz logic ...
+
+function finish() {
+    dom.progressBar.style.width = '100%';
+    dom.quizRunner.classList.add('hidden');
+    dom.resultsScreen.classList.remove('hidden');
+    dom.progressPanel.classList.add('hidden'); // Hide partial tracker to focus on final
+    
+    // Populate Final Stats
+    document.getElementById('final-score').textContent = `${appState.correctCount} / ${appState.attempts}`;
+    const acc = appState.attempts > 0 ? Math.round((appState.correctCount / appState.attempts) * 100) : 0;
+    document.getElementById('final-accuracy').textContent = `${acc}%`;
+    const lastLevel = appState.history.length > 0 ? appState.history[appState.history.length-1].level : 'medium';
+    document.getElementById('final-level').textContent = lastLevel.charAt(0).toUpperCase() + lastLevel.slice(1);
+    
+    confetti({ particleCount: 150, spread: 100, origin: { y: 0.5 } });
     lucide.createIcons();
-    feedbackPanel.classList.remove("hidden");
-    btnNext.classList.remove("hidden");
 }
 
-btnNext.addEventListener("click", () => {
-    currentQuestionIndex++;
-    if (currentQuestionIndex < currentQuizData.length) {
+// --- Quiz Logic ---
+function initQuiz() {
+    dom.emptyState.classList.add('hidden');
+    dom.genSection.classList.add('hidden');
+    dom.quizRunner.classList.remove('hidden');
+    dom.progressPanel.classList.remove('hidden');
+    
+    // Reset Stats
+    appState.index = 0;
+    appState.score = 0;
+    appState.attempts = 0;
+    appState.correctCount = 0;
+    appState.history = [];
+    
+    updateProgressUI();
+    dom.chartContainer.innerHTML = "";
+    dom.totalIdx.textContent = appState.quiz.length;
+    renderQuestion();
+}
+
+function renderQuestion() {
+    appState.isLocked = false;
+    selectedValue = null;
+    selectedCardElement = null;
+    
+    dom.btnNext.classList.add('hidden');
+    dom.btnSubmit.classList.remove('hidden');
+    dom.btnSubmit.disabled = true;
+    dom.feedback.innerHTML = "";
+    document.getElementById('source-trace-panel').classList.add('hidden');
+    
+    const q = appState.quiz[appState.index];
+    dom.qText.textContent = q.question;
+    dom.currIdx.textContent = appState.index + 1;
+    
+    // Progress bar
+    const progress = ((appState.index) / appState.quiz.length) * 100;
+    dom.progressBar.style.width = `${progress}%`;
+    
+    // UI Theme for difficulty
+    dom.diffBadge.className = `badge ${q.difficulty}`;
+    dom.diffBadge.textContent = q.difficulty;
+    
+    dom.optionsStack.innerHTML = "";
+    q.options.forEach((opt, idx) => {
+        const card = document.createElement('div');
+        card.className = "option-card fade-in";
+        card.style.animationDelay = `${idx * 0.1}s`;
+        card.innerHTML = `
+            <div class="option-index">${String.fromCharCode(65 + idx)}</div>
+            <div class="option-text">${opt}</div>
+        `;
+        card.onclick = () => {
+            if (appState.isLocked) return;
+            if (selectedCardElement) selectedCardElement.classList.remove('selected');
+            selectedValue = opt;
+            selectedCardElement = card;
+            card.classList.add('selected');
+            dom.btnSubmit.disabled = false;
+        };
+        dom.optionsStack.appendChild(card);
+    });
+}
+
+dom.btnSubmit.addEventListener('click', async () => {
+    if (!selectedValue || appState.isLocked) return;
+    const q = appState.quiz[appState.index];
+    await submit(selectedValue, selectedCardElement, q);
+});
+
+async function submit(val, el, q) {
+    appState.isLocked = true;
+    dom.btnSubmit.classList.add('hidden');
+    
+    try {
+        const res = await fetch(`${API_BASE}/submit-answer`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                student_id: STUDENT_ID,
+                question_id: q.id,
+                selected_answer: val
+            })
+        });
+        const data = await res.json();
+        
+        // Update Stats
+        appState.attempts++;
+        if (data.is_correct) appState.correctCount++;
+        appState.history.push({ correct: data.is_correct, level: data.next_recommended_difficulty });
+        updateProgressUI();
+        addChartBar(data.is_correct, data.next_recommended_difficulty);
+
+        // Feedback details
+        const diffText = data.original_difficulty === data.next_recommended_difficulty 
+            ? `Difficulty: ${data.original_difficulty}`
+            : `Difficulty: ${data.original_difficulty} → ${data.next_recommended_difficulty}`;
+        
+        const sourceText = `Source: ${data.source_chunk_id.split('_').slice(-2).join(' ')}`;
+
+        if (data.is_correct) {
+            el.classList.add('correct');
+            dom.feedback.innerHTML = `
+                <div class="feedback-msg correct" style="flex-direction: column; align-items: flex-start;">
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <i data-lucide="check-circle-2"></i> ✅ Correct!
+                    </div>
+                    <div style="font-size: 0.8rem; opacity: 0.8; margin-top: 0.5rem; font-weight: 500;">
+                        ${diffText} | ${sourceText}
+                    </div>
+                </div>`;
+            confetti({ particleCount: 30, spread: 60, origin: { y: 0.8 } });
+        } else {
+            el.classList.add('wrong');
+            dom.feedback.innerHTML = `
+                <div class="feedback-msg wrong" style="flex-direction: column; align-items: flex-start;">
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <i data-lucide="x-circle"></i> ❌ Incorrect
+                    </div>
+                    <div style="font-size: 0.8rem; opacity: 0.8; margin-top: 0.5rem; font-weight: 500;">
+                        Correct Answer: <strong>${data.correct_answer}</strong> <br>
+                        ${diffText} | ${sourceText}
+                    </div>
+                </div>`;
+        }
+        
+        lucide.createIcons();
+        
+        // Show Source Traceability
+        document.getElementById('source-trace-panel').classList.remove('hidden');
+        document.getElementById('source-text-display').textContent = `"${q.source_chunk_text}"`;
+        document.getElementById('source-id-display').textContent = `Chunk ID: ${q.source_chunk_id}`;
+        lucide.createIcons();
+
+        dom.btnNext.classList.remove('hidden');
+        
+    } catch (e) {
+        console.error(e);
+        appState.isLocked = false;
+        dom.btnSubmit.classList.remove('hidden');
+    }
+}
+
+function updateProgressUI() {
+    dom.statAttempted.textContent = appState.attempts;
+    const acc = appState.attempts > 0 ? Math.round((appState.correctCount / appState.attempts) * 100) : 0;
+    dom.statAccuracy.textContent = `${acc}%`;
+    
+    // Get current difficulty from last entry or default
+    const current = appState.history.length > 0 ? appState.history[appState.history.length-1].level : 'medium';
+    dom.statLevel.textContent = current.charAt(0).toUpperCase() + current.slice(1);
+}
+
+function addChartBar(isCorrect, level) {
+    const bar = document.createElement('div');
+    bar.className = `chart-bar ${isCorrect ? '' : 'wrong'}`;
+    
+    // Map level to height %
+    const heightMap = { 'easy': '30%', 'medium': '60%', 'hard': '100%' };
+    bar.style.height = heightMap[level] || '50%';
+    
+    dom.chartContainer.appendChild(bar);
+    
+    // Limit bars
+    if (dom.chartContainer.children.length > 15) {
+        dom.chartContainer.removeChild(dom.chartContainer.firstChild);
+    }
+}
+
+dom.btnNext.addEventListener('click', () => {
+    appState.index++;
+    if (appState.index < appState.quiz.length) {
         renderQuestion();
     } else {
-        // Quiz Exhausted
-        quizRunner.classList.add("hidden");
-        quizComplete.classList.remove("hidden");
+        finish();
     }
+});
+
+function finish() {
+    dom.progressBar.style.width = '100%';
+    dom.quizRunner.classList.add('hidden');
+    dom.resultsScreen.classList.remove('hidden');
+    dom.progressPanel.classList.add('hidden'); // Hide partial tracker to focus on final
+    
+    // Populate Final Stats
+    document.getElementById('final-score').textContent = `${appState.correctCount} / ${appState.attempts}`;
+    const acc = appState.attempts > 0 ? Math.round((appState.correctCount / appState.attempts) * 100) : 0;
+    document.getElementById('final-accuracy').textContent = `${acc}%`;
+    const lastLevel = appState.history.length > 0 ? appState.history[appState.history.length-1].level : 'medium';
+    document.getElementById('final-level').textContent = lastLevel.charAt(0).toUpperCase() + lastLevel.slice(1);
+    
+    confetti({ particleCount: 150, spread: 100, origin: { y: 0.5 } });
+    lucide.createIcons();
+}
+
+dom.btnReset.addEventListener('click', async () => {
+    if(!confirm("Are you sure? This will wipe all generated questions and progress.")) return;
+    try {
+        await fetch(`${API_BASE}/reset-db`, { method: 'DELETE' });
+        location.reload();
+    } catch(e) { console.error(e); }
 });

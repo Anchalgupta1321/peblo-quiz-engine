@@ -32,5 +32,6 @@ def submit_answer(ans: StudentAnswerSubmit, db: Session = Depends(get_db)):
         is_correct=is_correct,
         correct_answer=question.answer if not is_correct else "",
         original_difficulty=question.difficulty,
-        next_recommended_difficulty=next_diff
+        next_recommended_difficulty=next_diff,
+        source_chunk_id=question.source_chunk_id
     )
