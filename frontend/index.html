@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Peblo AI - Adaptive Learning</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="dark-theme">
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="glass-panel">
+            <div class="logo">
+                <i data-lucide="brain-circuit" class="icon-accent"></i>
+                <h1>Peblo<span>AI</span></h1>
+            </div>
+            <div class="student-profile">
+                <span>Student ID: S001</span>
+                <div class="avatar">S</div>
+            </div>
+        </header>
+
+        <!-- Main Content Layout -->
+        <main class="dashboard grid-layout">
+            
+            <!-- Left Sidebar (Upload & Actions) -->
+            <aside class="sidebar glass-panel slide-in-left">
+                <h2>Knowledge Ingestion</h2>
+                <p class="subtitle">Upload content to start your adaptive journey.</p>
+                
+                <div class="upload-zone" id="upload-zone">
+                    <input type="file" id="pdf-upload" accept=".pdf" hidden />
+                    <i data-lucide="upload-cloud" class="upload-icon"></i>
+                    <p>Drag & Drop your PDF here</p>
+                    <span class="text-sm">or</span>
+                    <button class="btn btn-secondary" onclick="document.getElementById('pdf-upload').click()">Browse Files</button>
+                    <div id="upload-status" class="status-message"></div>
+                </div>
+
+                <div class="generation-zone disabled" id="generation-zone">
+                    <div class="zone-header">
+                        <h3>Content Processed</h3>
+                        <i data-lucide="check-circle" class="success-icon"></i>
+                    </div>
+                    <p id="extraction-status" class="text-sm text-dim">Ready to analyze chunks.</p>
+                    <button class="btn btn-primary full-width mt-4 pulse" id="btn-generate">
+                        <i data-lucide="sparkles"></i> Generate AI Quiz
+                    </button>
+                    <div id="generation-status" class="status-message"></div>
+                </div>
+            </aside>
+
+            <!-- Right Content Area (Quiz Runner) -->
+            <section class="content-area glass-panel slide-in-bottom">
+                
+                <div id="empty-state" class="empty-state">
+                    <div class="icon-ring">
+                        <i data-lucide="book-open" class="large-icon"></i>
+                    </div>
+                    <h2>No active quiz</h2>
+                    <p>Upload a document and generate the quiz to begin learning.</p>
+                </div>
+
+                <div id="quiz-runner" class="quiz-runner hidden">
+                    <div class="quiz-header">
+                        <div class="difficulty-badge" id="difficulty-badge">Medium</div>
+                        <div class="progress">Question <span id="current-q-index">1</span> of <span id="total-q">?</span></div>
+                    </div>
+                    
+                    <div class="question-container">
+                        <h2 id="question-text" class="question-title">Loading Question...</h2>
+                        <div id="options-container" class="options-grid">
+                            <!-- Options rendered dynamically -->
+                        </div>
+                    </div>
+
+                    <div class="quiz-footer">
+                        <div id="feedback-panel" class="feedback-panel hidden">
+                            <!-- Correct / Incorrect feedback -->
+                        </div>
+                        <button id="btn-next" class="btn btn-primary next-button hidden">Next Question <i data-lucide="arrow-right"></i></button>
+                    </div>
+                </div>
+                
+                <div id="quiz-complete" class="empty-state hidden">
+                    <div class="icon-ring success-ring">
+                        <i data-lucide="trophy" class="large-icon"></i>
+                    </div>
+                    <h2>Quiz Completed!</h2>
+                    <p>Your adaptive engine has updated your personal proficiency map.</p>
+                    <button class="btn btn-primary mt-4" onclick="location.reload()">Start Another</button>
+                </div>
+
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>
